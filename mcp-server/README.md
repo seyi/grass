@@ -48,6 +48,55 @@ Or install dependencies directly:
 pip install -r requirements.txt
 ```
 
+### Development Installation
+
+For development with testing and code quality tools:
+
+```bash
+cd mcp-server
+pip install -e ".[dev]"
+```
+
+## Testing
+
+The MCP server includes a comprehensive test suite with unit tests, integration tests, and mocks.
+
+### Running Tests
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=grass_mcp_server --cov-report=html
+
+# Run specific test file
+pytest tests/test_tools.py
+
+# Run with verbose output
+pytest -v
+```
+
+Or use the Makefile:
+
+```bash
+make test              # Run all tests
+make test-coverage     # Run tests with coverage report
+make test-verbose      # Run tests with verbose output
+```
+
+### Test Structure
+
+- `tests/test_tools.py` - Tests for MCP tool definitions and schemas
+- `tests/test_commands.py` - Tests for GRASS command execution
+- `tests/test_mcp_server.py` - Integration tests for the MCP server
+- `tests/conftest.py` - Pytest fixtures and test configuration
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
 ## Configuration
 
 ### For Claude Desktop
