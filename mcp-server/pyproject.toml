@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grass-mcp-server"
+version = "0.1.0"
+description = "MCP server exposing GRASS GIS geospatial processing capabilities"
+readme = "README.md"
+authors = [
+    { name = "GRASS Development Team", email = "grass-dev@lists.osgeo.org" }
+]
+license = { text = "GPL-2.0-or-later" }
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://grass.osgeo.org"
+Repository = "https://github.com/OSGeo/grass"
+Documentation = "https://grass.osgeo.org/grass-devel/manuals/index.html"
+
+[project.scripts]
+grass-mcp-server = "grass_mcp_server:main"
+
+[tool.setuptools]
+py-modules = ["grass_mcp_server"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = []

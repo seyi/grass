@@ -1,0 +1,257 @@
+# GRASS GIS MCP Server
+
+A Model Context Protocol (MCP) server that exposes GRASS GIS geospatial processing capabilities to AI assistants like Claude.
+
+## Overview
+
+This MCP server provides AI assistants with access to powerful geospatial analysis tools from GRASS GIS (Geographic Resources Analysis Support System). GRASS GIS is a comprehensive open-source GIS software suite used for geospatial data management, analysis, and visualization.
+
+## Features
+
+The server exposes the following GRASS GIS capabilities:
+
+### Raster Operations
+- **grass_raster_info**: Get detailed information about raster maps (dimensions, resolution, extent, data type)
+- **grass_raster_univar**: Calculate univariate statistics (min, max, mean, standard deviation, etc.)
+- **grass_mapcalc**: Execute raster map algebra for complex mathematical operations
+- **grass_slope_aspect**: Calculate slope and aspect from Digital Elevation Models (DEMs)
+
+### Vector Operations
+- **grass_vector_info**: Get information about vector maps (features, types, extent, attributes)
+- **grass_buffer**: Create buffers around vector features for proximity analysis
+
+### General Operations
+- **grass_list_maps**: List all maps in a location/mapset (raster, vector, or 3D raster)
+- **grass_region_info**: Get computational region information (extent, resolution, dimensions)
+
+## Installation
+
+### Prerequisites
+
+1. **GRASS GIS**: Install GRASS GIS on your system
+   - Ubuntu/Debian: `sudo apt-get install grass grass-dev`
+   - macOS: `brew install grass`
+   - Windows: Download from [GRASS GIS website](https://grass.osgeo.org/download/)
+
+2. **Python 3.10+**: Ensure you have Python 3.10 or higher installed
+
+### Install the MCP Server
+
+```bash
+cd mcp-server
+pip install -e .
+```
+
+Or install dependencies directly:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Configuration
+
+### For Claude Desktop
+
+Add this configuration to your Claude Desktop config file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "grass-gis": {
+      "command": "python",
+      "args": ["/path/to/grass/mcp-server/grass_mcp_server.py"]
+    }
+  }
+}
+```
+
+Replace `/path/to/grass` with the actual path to your GRASS repository.
+
+### For Other MCP Clients
+
+Run the server directly:
+
+```bash
+python grass_mcp_server.py
+```
+
+The server communicates via stdio and follows the MCP protocol specification.
+
+## Usage Examples
+
+### Example 1: Getting Raster Information
+
+```
+User: Can you get information about the elevation raster in my GRASS location?
+
+Assistant uses:
+- Tool: grass_raster_info
+- Arguments:
+  - map_name: "elevation"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+  - mapset: "PERMANENT"
+```
+
+### Example 2: Calculate Terrain Slope
+
+```
+User: Calculate slope from the elevation map and save it as "slope_map"
+
+Assistant uses:
+- Tool: grass_slope_aspect
+- Arguments:
+  - elevation: "elevation"
+  - slope: "slope_map"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 3: Buffer Analysis
+
+```
+User: Create a 500-meter buffer around the "roads" vector map
+
+Assistant uses:
+- Tool: grass_buffer
+- Arguments:
+  - input_map: "roads"
+  - output_map: "roads_buffer_500m"
+  - distance: 500
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 4: Raster Statistics
+
+```
+User: Get detailed statistics for the "landuse" raster
+
+Assistant uses:
+- Tool: grass_raster_univar
+- Arguments:
+  - map_name: "landuse"
+  - extended: true
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 5: Map Algebra
+
+```
+User: Create a new raster that's elevation multiplied by 2
+
+Assistant uses:
+- Tool: grass_mapcalc
+- Arguments:
+  - expression: "elevation_2x = elevation * 2"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+## GRASS GIS Concepts
+
+### GIS Database Structure
+
+GRASS uses a hierarchical structure:
+
+```
+GISDBASE/                (GRASS GIS database directory)
+  └── LOCATION/          (Project with consistent coordinate system)
+      └── MAPSET/        (Subdirectory containing maps and data)
+          ├── raster/    (Raster maps)
+          ├── vector/    (Vector maps)
+          └── ...
+```
+
+- **GISDBASE**: Directory containing all GRASS locations
+- **LOCATION**: A project area with a specific coordinate reference system (CRS)
+- **MAPSET**: A subdirectory within a location for organizing data (default: PERMANENT)
+
+### Setting Up a GRASS Location
+
+Before using the MCP server, you need a GRASS location with data:
+
+```bash
+# Create a new location with WGS84 coordinate system
+grass -c EPSG:4326 ~/grassdata/my_location
+
+# Or use an existing sample location
+grass ~/grassdata/nc_spm_08/PERMANENT
+```
+
+## Available Tools Reference
+
+| Tool | Purpose | Key Parameters |
+|------|---------|----------------|
+| `grass_raster_info` | Get raster metadata | map_name, gisdbase, location |
+| `grass_vector_info` | Get vector metadata | map_name, gisdbase, location |
+| `grass_raster_univar` | Calculate raster statistics | map_name, extended |
+| `grass_list_maps` | List all maps | map_type (raster/vector/all) |
+| `grass_mapcalc` | Raster map algebra | expression |
+| `grass_slope_aspect` | Terrain analysis | elevation, slope, aspect |
+| `grass_buffer` | Vector buffering | input_map, output_map, distance |
+| `grass_region_info` | Get region info | gisdbase, location |
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/
+```
+
+### Code Formatting
+
+```bash
+black grass_mcp_server.py
+ruff check grass_mcp_server.py
+```
+
+## Troubleshooting
+
+### GRASS not found error
+
+If you get "GRASS GIS not found" errors:
+
+1. Ensure GRASS is installed: `grass --version`
+2. Check that GRASS is in your PATH
+3. Verify the Python grass package is accessible: `python -c "import grass.script"`
+
+### Permission errors
+
+Ensure you have read/write permissions for:
+- The GRASS database directory (gisdbase)
+- The location and mapset directories
+- Any output maps you're creating
+
+### Invalid location/mapset
+
+Verify that:
+- The gisdbase path exists and is a valid GRASS database
+- The location exists within the gisdbase
+- The mapset exists within the location
+
+## Resources
+
+- [GRASS GIS Website](https://grass.osgeo.org/)
+- [GRASS GIS Documentation](https://grass.osgeo.org/grass-devel/manuals/)
+- [GRASS Python API](https://grass.osgeo.org/grass-devel/manuals/libpython/index.html)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+
+## License
+
+This MCP server follows the GRASS GIS license (GPL-2.0-or-later).
+
+## Contributing
+
+Contributions are welcome! See the main [CONTRIBUTING.md](../CONTRIBUTING.md) file for guidelines.
+
+## Support
+
+For issues specific to this MCP server, please open an issue on the GRASS GIS repository.
+For GRASS GIS questions, visit the [GRASS community forums](https://discourse.osgeo.org/c/grass/62).

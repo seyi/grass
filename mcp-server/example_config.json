@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "grass-gis": {
+      "command": "python",
+      "args": ["/absolute/path/to/grass/mcp-server/grass_mcp_server.py"],
+      "env": {
+        "GRASS_VERBOSE": "0"
+      }
+    }
+  }
+}
