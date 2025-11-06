@@ -1,6 +1,20 @@
 # GRASS GIS MCP Server
 
+[![Testing Phase](https://img.shields.io/badge/status-testing-yellow)](TESTING_INVITATION.md)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2+-blue.svg)](LICENSE)
+
 A Model Context Protocol (MCP) server that exposes GRASS GIS geospatial processing capabilities to AI assistants like Claude.
+
+> **🧪 Testing Phase:** We're seeking testers! See [TESTING_INVITATION.md](TESTING_INVITATION.md) for how to participate.
+
+## 🚀 Quick Install for Testers
+
+```bash
+pip install git+https://github.com/seyi/grass.git@claude/create-geospatial-mcp-grass-011CUr9bMgUcm9QX2hz9KwdX#subdirectory=mcp-server
+```
+
+See **[QUICKSTART.md](QUICKSTART.md)** for detailed installation instructions and testing guide.
 
 ## Overview
 
