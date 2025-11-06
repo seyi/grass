@@ -38,10 +38,16 @@ class TestRunGrassCommand:
     @patch("grass_mcp_server.subprocess.run")
     def test_run_grass_command_failure(self, mock_run, mock_gisdbase):
         """Test GRASS command execution failure."""
-        # Mock failed subprocess run
-        mock_run.return_value = Mock(
-            returncode=1, stdout="", stderr="ERROR: Map not found"
-        )
+        # Mock which command to find grass, then mock failed grass command
+        def run_side_effect(*args, **kwargs):
+            if "which" in args[0]:
+                # which grass succeeds
+                return Mock(returncode=0, stdout="/usr/bin/grass\n", stderr="")
+            else:
+                # actual grass command fails
+                return Mock(returncode=1, stdout="", stderr="ERROR: Map not found")
+
+        mock_run.side_effect = run_side_effect
 
         with pytest.raises(RuntimeError, match="GRASS command failed"):
             grass_mcp_server.run_grass_command(
