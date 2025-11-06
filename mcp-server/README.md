@@ -24,29 +24,49 @@ The server exposes the following GRASS GIS capabilities:
 - **grass_list_maps**: List all maps in a location/mapset (raster, vector, or 3D raster)
 - **grass_region_info**: Get computational region information (extent, resolution, dimensions)
 
-## Installation
+## Quick Start
+
+### Option 1: Automated Installation (Recommended)
+
+**Linux/macOS:**
+```bash
+cd mcp-server
+./install.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+cd mcp-server
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+The script will guide you through the installation process.
+
+### Option 2: Manual Installation
+
+**Install from source:**
+```bash
+cd mcp-server
+pip install .
+```
+
+**Or install from GitHub (once published):**
+```bash
+pip install git+https://github.com/OSGeo/grass.git#subdirectory=mcp-server
+```
+
+**Or from PyPI (once published):**
+```bash
+pip install grass-mcp-server
+```
 
 ### Prerequisites
 
-1. **GRASS GIS**: Install GRASS GIS on your system
-   - Ubuntu/Debian: `sudo apt-get install grass grass-dev`
-   - macOS: `brew install grass`
-   - Windows: Download from [GRASS GIS website](https://grass.osgeo.org/download/)
-
-2. **Python 3.10+**: Ensure you have Python 3.10 or higher installed
-
-### Install the MCP Server
-
-```bash
-cd mcp-server
-pip install -e .
-```
-
-Or install dependencies directly:
-
-```bash
-pip install -r requirements.txt
-```
+- **Python 3.10+**: Required
+- **GRASS GIS**: Recommended but optional for testing
+  - Ubuntu/Debian: `sudo apt-get install grass grass-dev`
+  - macOS: `brew install grass`
+  - Windows: Download from [GRASS GIS website](https://grass.osgeo.org/download/)
 
 ### Development Installation
 
@@ -285,12 +305,54 @@ Verify that:
 - The location exists within the gisdbase
 - The mapset exists within the location
 
+## Deployment Options
+
+### Docker
+
+**Build and run with Docker:**
+```bash
+docker build -t grass-mcp-server .
+docker run -i grass-mcp-server
+```
+
+**Or use Docker Compose:**
+```bash
+docker-compose up grass-mcp
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed Docker deployment instructions.
+
+### Distribution Methods
+
+- **PyPI**: `pip install grass-mcp-server` (once published)
+- **GitHub**: `pip install git+https://github.com/OSGeo/grass.git#subdirectory=mcp-server`
+- **Virtual Environment**: See [DEPLOYMENT.md](DEPLOYMENT.md)
+- **System-wide**: See [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Conda**: See [DEPLOYMENT.md](DEPLOYMENT.md)
+
+For comprehensive deployment instructions including:
+- Publishing to PyPI
+- OS-specific packages
+- CI/CD automation
+- Security considerations
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)**
+
 ## Resources
 
 - [GRASS GIS Website](https://grass.osgeo.org/)
 - [GRASS GIS Documentation](https://grass.osgeo.org/grass-devel/manuals/)
 - [GRASS Python API](https://grass.osgeo.org/grass-devel/manuals/libpython/index.html)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
+
+## Documentation
+
+- **[README.md](README.md)** - This file, main documentation
+- **[USAGE.md](USAGE.md)** - Detailed usage examples and workflows
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Comprehensive deployment guide
+- **[TESTING_SUMMARY.md](TESTING_SUMMARY.md)** - Test suite documentation
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history
+- **[tests/README.md](tests/README.md)** - Testing guide
 
 ## License
 

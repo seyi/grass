@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  grass-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: grass-mcp-server:latest
+    container_name: grass-mcp-server
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount your local GRASS database
+      - ./grassdata:/grassdata:rw
+      # Optional: mount specific location
+      # - ./grassdata/my_location:/grassdata/my_location:rw
+    environment:
+      - GISDBASE=/grassdata
+      - GRASS_VERBOSE=0
+    restart: unless-stopped
+    # For stdio communication with MCP clients
+    network_mode: "none"
+
+  # Example: Run with specific GRASS location
+  grass-mcp-nc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: grass-mcp-server:latest
+    container_name: grass-mcp-nc
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./grassdata:/grassdata:rw
+    environment:
+      - GISDBASE=/grassdata
+      - LOCATION_NAME=nc_spm_08
+      - MAPSET=PERMANENT
+      - GRASS_VERBOSE=0
+    restart: unless-stopped
+    network_mode: "none"
+    profiles:
+      - nc  # Use with: docker-compose --profile nc up
+
+# Usage:
+#
+# Build and run:
+#   docker-compose up grass-mcp
+#
+# Run with specific profile:
+#   docker-compose --profile nc up grass-mcp-nc
+#
+# Build only:
+#   docker-compose build
+#
+# Run in detached mode:
+#   docker-compose up -d grass-mcp
+#
+# View logs:
+#   docker-compose logs -f grass-mcp
+#
+# Stop:
+#   docker-compose down

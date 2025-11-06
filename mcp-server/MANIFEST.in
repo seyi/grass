@@ -1,0 +1,35 @@
+# Include documentation files
+include README.md
+include USAGE.md
+include CHANGELOG.md
+include DEPLOYMENT.md
+include TESTING_SUMMARY.md
+include LICENSE
+
+# Include configuration files
+include pyproject.toml
+include pytest.ini
+include requirements.txt
+include requirements-dev.txt
+include example_config.json
+
+# Include installation scripts
+include install.sh
+include install.ps1
+
+# Include Docker files
+include Dockerfile
+include docker-compose.yml
+include .dockerignore
+
+# Include test files
+recursive-include tests *.py
+include tests/README.md
+
+# Exclude
+exclude .gitignore
+exclude Makefile
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .DS_Store
