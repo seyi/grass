@@ -11,7 +11,7 @@ Date: 2025-11-06
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
-import subprocess
+import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -144,30 +144,41 @@ VISUALIZATION_TOOLS = [
 # Helper Functions
 # =============================================================================
 
-def run_grass_command(cmd, gisdbase, location, mapset="PERMANENT", timeout=60):
-    """Execute a GRASS command in the specified location."""
+async def run_grass_command(cmd, gisdbase, location, mapset="PERMANENT", timeout=60):
+    """Execute a GRASS command in the specified location (async version)."""
     grass_cmd = ["grass", f"{gisdbase}/{location}/{mapset}", "--exec"] + cmd
-    result = subprocess.run(
-        grass_cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=dict(os.environ, GRASS_BATCH_JOB="1")
+
+    env = dict(os.environ, GRASS_BATCH_JOB="1")
+
+    process = await asyncio.create_subprocess_exec(
+        *grass_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env
     )
-    if result.returncode != 0:
-        raise Exception(f"GRASS command failed: {result.stderr}")
-    return result.stdout
+
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise Exception(f"GRASS command timed out after {timeout} seconds")
+
+    if process.returncode != 0:
+        raise Exception(f"GRASS command failed: {stderr.decode()}")
+
+    return stdout.decode()
 
 
 # =============================================================================
 # Visualization Implementations
 # =============================================================================
 
-def visualize_raster_simple(map_name, output_path, gisdbase, location,
+async def visualize_raster_simple(map_name, output_path, gisdbase, location,
                             width=800, height=600, add_legend=True,
                             add_scalebar=True, add_north_arrow=True):
     """
-    Create a simple raster visualization using matplotlib.
+    Create a simple raster visualization using matplotlib (async version).
     This is the most reliable cross-platform approach.
     """
     try:
@@ -184,7 +195,7 @@ def visualize_raster_simple(map_name, output_path, gisdbase, location,
 
     try:
         # Export GRASS raster
-        run_grass_command(
+        await run_grass_command(
             ["r.out.gdal", f"input={map_name}", f"output={temp_tif}",
              "format=GTiff", "--overwrite"],
             gisdbase, location
@@ -238,8 +249,8 @@ def visualize_raster_simple(map_name, output_path, gisdbase, location,
             os.unlink(temp_tif)
 
 
-def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
-    """Create terrain visualization with hillshade overlay."""
+async def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
+    """Create terrain visualization with hillshade overlay (async version)."""
     try:
         import matplotlib.pyplot as plt
         import rasterio
@@ -252,7 +263,7 @@ def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
 
     try:
         # Generate hillshade
-        run_grass_command(
+        await run_grass_command(
             ["r.relief", f"input={elevation_map}", f"output={hillshade_name}",
              "--overwrite"],
             gisdbase, location
@@ -263,12 +274,12 @@ def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
             elev_tif = os.path.join(tmpdir, "elev.tif")
             hs_tif = os.path.join(tmpdir, "hillshade.tif")
 
-            run_grass_command(
+            await run_grass_command(
                 ["r.out.gdal", f"input={elevation_map}", f"output={elev_tif}",
                  "--overwrite"],
                 gisdbase, location
             )
-            run_grass_command(
+            await run_grass_command(
                 ["r.out.gdal", f"input={hillshade_name}", f"output={hs_tif}",
                  "--overwrite"],
                 gisdbase, location
@@ -308,7 +319,7 @@ def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
     finally:
         # Cleanup temporary hillshade
         try:
-            run_grass_command(
+            await run_grass_command(
                 ["g.remove", "type=raster", f"name={hillshade_name}", "-f"],
                 gisdbase, location
             )
@@ -316,8 +327,8 @@ def visualize_with_hillshade(elevation_map, output_path, gisdbase, location):
             pass
 
 
-def create_interactive_map(map_name, output_path, gisdbase, location):
-    """Create interactive HTML map using Folium."""
+async def create_interactive_map(map_name, output_path, gisdbase, location):
+    """Create interactive HTML map using Folium (async version)."""
     try:
         import folium
         from folium import plugins
@@ -331,7 +342,7 @@ def create_interactive_map(map_name, output_path, gisdbase, location):
 
     try:
         # Export raster
-        run_grass_command(
+        await run_grass_command(
             ["r.out.gdal", f"input={map_name}", f"output={temp_tif}",
              "format=GTiff", "--overwrite"],
             gisdbase, location
@@ -404,14 +415,14 @@ async def handle_visualization_tool(name: str, arguments: dict) -> list[TextCont
             style = arguments.get("style", "simple")
 
             if style == "hillshade" or style == "terrain":
-                result = visualize_with_hillshade(
+                result = await visualize_with_hillshade(
                     arguments["map_name"],
                     arguments["output_path"],
                     arguments["gisdbase"],
                     arguments["location"]
                 )
             else:
-                result = visualize_raster_simple(
+                result = await visualize_raster_simple(
                     arguments["map_name"],
                     arguments["output_path"],
                     arguments["gisdbase"],
@@ -424,7 +435,7 @@ async def handle_visualization_tool(name: str, arguments: dict) -> list[TextCont
                 )
 
         elif name == "grass_create_composite":
-            result = visualize_with_hillshade(
+            result = await visualize_with_hillshade(
                 arguments["base_map"],
                 arguments["output_path"],
                 arguments["gisdbase"],
@@ -432,7 +443,7 @@ async def handle_visualization_tool(name: str, arguments: dict) -> list[TextCont
             )
 
         elif name == "grass_create_interactive_map":
-            result = create_interactive_map(
+            result = await create_interactive_map(
                 arguments["map_name"],
                 arguments["output_path"],
                 arguments["gisdbase"],

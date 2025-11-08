@@ -314,14 +314,14 @@ async def list_tools() -> list[Tool]:
         return base_tools
 
 
-def run_grass_command(
+async def run_grass_command(
     command: list[str],
     gisdbase: str,
     location: str,
     mapset: str = "PERMANENT",
 ) -> str:
     """
-    Run a GRASS GIS command with proper environment setup.
+    Run a GRASS GIS command with proper environment setup (async version).
 
     Args:
         command: GRASS command as list of strings
@@ -342,54 +342,64 @@ def run_grass_command(
     grass_bin = None
     for possible_grass in ["grass", "grass80", "grass82", "grass83", "grass84"]:
         try:
-            result = subprocess.run(
-                ["which", possible_grass],
-                capture_output=True,
-                text=True,
-                timeout=5,
+            # Use asyncio.create_subprocess_exec for async which command
+            process = await asyncio.create_subprocess_exec(
+                "which", possible_grass,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            if result.returncode == 0:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+            if process.returncode == 0:
                 grass_bin = possible_grass
                 break
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (asyncio.TimeoutError, FileNotFoundError):
             continue
 
     if not grass_bin:
         # Try Python import as fallback
         try:
             import grass.script as gs
-            # Use Python API directly
-            if command[0] == "r.info":
-                from grass.script import raster
-                result = gs.read_command(*command)
-                return result
-            elif command[0] == "v.info":
-                from grass.script import vector
-                result = gs.read_command(*command)
-                return result
-            else:
-                result = gs.read_command(*command)
-                return result
+            # Use Python API directly - run in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+
+            def _run_grass_script():
+                if command[0] == "r.info":
+                    from grass.script import raster
+                    return gs.read_command(*command)
+                elif command[0] == "v.info":
+                    from grass.script import vector
+                    return gs.read_command(*command)
+                else:
+                    return gs.read_command(*command)
+
+            result = await loop.run_in_executor(None, _run_grass_script)
+            return result
         except ImportError:
             raise RuntimeError(
                 "GRASS GIS not found. Please install GRASS GIS or ensure it's in PATH"
             )
 
-    # Run command through GRASS
+    # Run command through GRASS using asyncio.create_subprocess_exec
     full_command = [grass_bin, "--text", "--exec"] + command
 
-    result = subprocess.run(
-        full_command,
+    process = await asyncio.create_subprocess_exec(
+        *full_command,
         env=env,
-        capture_output=True,
-        text=True,
-        timeout=60,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
 
-    if result.returncode != 0:
-        raise RuntimeError(f"GRASS command failed: {result.stderr}")
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise RuntimeError("GRASS command timed out after 60 seconds")
 
-    return result.stdout
+    if process.returncode != 0:
+        raise RuntimeError(f"GRASS command failed: {stderr.decode()}")
+
+    return stdout.decode()
 
 
 @app.call_tool()
@@ -401,7 +411,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return await handle_visualization_tool(name, arguments)
 
         if name == "grass_raster_info":
-            output = run_grass_command(
+            output = await run_grass_command(
                 ["r.info", "-g", f"map={arguments['map_name']}"],
                 arguments["gisdbase"],
                 arguments["location"],
@@ -410,7 +420,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=output)]
 
         elif name == "grass_vector_info":
-            output = run_grass_command(
+            output = await run_grass_command(
                 ["v.info", "-g", f"map={arguments['map_name']}"],
                 arguments["gisdbase"],
                 arguments["location"],
@@ -422,7 +432,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             flags = "-g"
             if arguments.get("extended", False):
                 flags += "e"
-            output = run_grass_command(
+            output = await run_grass_command(
                 ["r.univar", flags, f"map={arguments['map_name']}"],
                 arguments["gisdbase"],
                 arguments["location"],
@@ -441,7 +451,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 outputs = []
                 for cmd in commands:
                     try:
-                        out = run_grass_command(
+                        out = await run_grass_command(
                             cmd,
                             arguments["gisdbase"],
                             arguments["location"],
@@ -457,7 +467,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                     "vector": "vector",
                     "raster_3d": "raster_3d",
                 }
-                output = run_grass_command(
+                output = await run_grass_command(
                     ["g.list", f"type={type_map[map_type]}", "-m"],
                     arguments["gisdbase"],
                     arguments["location"],
@@ -466,7 +476,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=output)]
 
         elif name == "grass_mapcalc":
-            output = run_grass_command(
+            output = await run_grass_command(
                 ["r.mapcalc", f"expression={arguments['expression']}"],
                 arguments["gisdbase"],
                 arguments["location"],
@@ -483,7 +493,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             if "aspect" in arguments:
                 cmd.append(f"aspect={arguments['aspect']}")
 
-            output = run_grass_command(
+            output = await run_grass_command(
                 cmd,
                 arguments["gisdbase"],
                 arguments["location"],
@@ -492,7 +502,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=f"Slope/aspect calculated: {output}")]
 
         elif name == "grass_buffer":
-            output = run_grass_command(
+            output = await run_grass_command(
                 [
                     "v.buffer",
                     f"input={arguments['input_map']}",
@@ -506,7 +516,7 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
             return [TextContent(type="text", text=f"Buffer created: {output}")]
 
         elif name == "grass_region_info":
-            output = run_grass_command(
+            output = await run_grass_command(
                 ["g.region", "-p"],
                 arguments["gisdbase"],
                 arguments["location"],
