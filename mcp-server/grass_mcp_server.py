@@ -25,6 +25,14 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
+# Import visualization addon
+try:
+    from grass_visualization_addon import VISUALIZATION_TOOLS, handle_visualization_tool
+    VISUALIZATION_AVAILABLE = True
+except ImportError as e:
+    VISUALIZATION_AVAILABLE = False
+    VISUALIZATION_IMPORT_ERROR = str(e)
+
 
 # Create MCP server instance
 app = Server("grass-gis")
@@ -33,7 +41,8 @@ app = Server("grass-gis")
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List available GRASS GIS tools."""
-    return [
+    # Base GRASS tools
+    base_tools = [
         Tool(
             name="grass_raster_info",
             description=(
@@ -298,6 +307,12 @@ async def list_tools() -> list[Tool]:
         ),
     ]
 
+    # Add visualization tools if available
+    if VISUALIZATION_AVAILABLE:
+        return base_tools + VISUALIZATION_TOOLS
+    else:
+        return base_tools
+
 
 def run_grass_command(
     command: list[str],
@@ -381,6 +396,10 @@ def run_grass_command(
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
     """Handle tool calls."""
     try:
+        # Route visualization tool calls
+        if VISUALIZATION_AVAILABLE and name in ["grass_visualize_raster", "grass_create_composite", "grass_create_interactive_map"]:
+            return await handle_visualization_tool(name, arguments)
+
         if name == "grass_raster_info":
             output = run_grass_command(
                 ["r.info", "-g", f"map={arguments['map_name']}"],

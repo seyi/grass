@@ -38,6 +38,11 @@ The server exposes the following GRASS GIS capabilities:
 - **grass_list_maps**: List all maps in a location/mapset (raster, vector, or 3D raster)
 - **grass_region_info**: Get computational region information (extent, resolution, dimensions)
 
+### Visualization (Phase 1) ✨ NEW
+- **grass_visualize_raster**: Create PNG visualizations of raster maps with legends, scale bars, and north arrows
+- **grass_create_composite**: Create composite visualizations combining multiple layers (e.g., elevation with hillshade)
+- **grass_create_interactive_map**: Generate interactive HTML maps with pan/zoom capabilities
+
 ## Quick Start
 
 ### Option 1: Automated Installation (Recommended)
@@ -81,6 +86,10 @@ pip install grass-mcp-server
   - Ubuntu/Debian: `sudo apt-get install grass grass-dev`
   - macOS: `brew install grass`
   - Windows: Download from [GRASS GIS website](https://grass.osgeo.org/download/)
+- **Visualization Dependencies** (optional, for visualization tools):
+  - `pip install matplotlib rasterio folium`
+  - Not required for core GRASS tools
+  - Visualization tools will provide helpful error messages if dependencies are missing
 
 ### Development Installation
 
@@ -236,6 +245,54 @@ Assistant uses:
   - location: "nc_spm_08"
 ```
 
+### Example 6: Create Visualization ✨ NEW
+
+```
+User: Create a visualization of the elevation map and save it to /tmp/elevation.png
+
+Assistant uses:
+- Tool: grass_visualize_raster
+- Arguments:
+  - map_name: "elevation"
+  - output_path: "/tmp/elevation.png"
+  - width: 800
+  - height: 600
+  - style: "simple"
+  - add_legend: true
+  - add_scalebar: true
+  - add_north_arrow: true
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 7: Create Terrain Visualization ✨ NEW
+
+```
+User: Create a hillshade visualization of elevation with terrain colors
+
+Assistant uses:
+- Tool: grass_create_composite
+- Arguments:
+  - base_map: "elevation"
+  - output_path: "/tmp/terrain.png"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 8: Interactive Map ✨ NEW
+
+```
+User: Create an interactive map of the landuse raster that I can open in a browser
+
+Assistant uses:
+- Tool: grass_create_interactive_map
+- Arguments:
+  - map_name: "landuse"
+  - output_path: "/tmp/landuse.html"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
 ## GRASS GIS Concepts
 
 ### GIS Database Structure
@@ -279,6 +336,9 @@ grass ~/grassdata/nc_spm_08/PERMANENT
 | `grass_slope_aspect` | Terrain analysis | elevation, slope, aspect |
 | `grass_buffer` | Vector buffering | input_map, output_map, distance |
 | `grass_region_info` | Get region info | gisdbase, location |
+| `grass_visualize_raster` ✨ | Create PNG visualization | map_name, output_path, style |
+| `grass_create_composite` ✨ | Create hillshade composite | base_map, output_path |
+| `grass_create_interactive_map` ✨ | Create HTML interactive map | map_name, output_path |
 
 ## Development
 
@@ -367,6 +427,11 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)**
 - **[TESTING_SUMMARY.md](TESTING_SUMMARY.md)** - Test suite documentation
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 - **[tests/README.md](tests/README.md)** - Testing guide
+- **[VISUALIZATION_OPTIONS.md](VISUALIZATION_OPTIONS.md)** ✨ - Visualization approaches analysis
+- **[VISUALIZATION_RECOMMENDATION.md](VISUALIZATION_RECOMMENDATION.md)** ✨ - Implementation guide
+- **[VISUALIZATION_TEST_RESULTS.md](VISUALIZATION_TEST_RESULTS.md)** ✨ - Test validation results
+- **[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)** - Local installation instructions
+- **[LOCAL_VISUALIZATION_GUIDE.md](LOCAL_VISUALIZATION_GUIDE.md)** - Local vs server visualization
 
 ## License
 
