@@ -122,7 +122,7 @@ tail -f ~/.cache/uv/archive-v0/*/lib/python3.12/site-packages/logs/mcp_server.lo
 
 **Test server directly**:
 ```bash
-export GEMINI_API_KEY="AIzaSyCZ4I-0Dc7HOfMmmJhi3fC4jzNl04bIQiw"
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 /root/.local/bin/uvx --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server
 ```
 
