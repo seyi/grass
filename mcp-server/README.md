@@ -38,10 +38,20 @@ The server exposes the following GRASS GIS capabilities:
 - **grass_list_maps**: List all maps in a location/mapset (raster, vector, or 3D raster)
 - **grass_region_info**: Get computational region information (extent, resolution, dimensions)
 
-### Visualization (Phase 1) ✨ NEW
+### Visualization (Phase 1) ✨
 - **grass_visualize_raster**: Create PNG visualizations of raster maps with legends, scale bars, and north arrows
 - **grass_create_composite**: Create composite visualizations combining multiple layers (e.g., elevation with hillshade)
 - **grass_create_interactive_map**: Generate interactive HTML maps with pan/zoom capabilities
+
+### Advanced Analysis (Phase 2A) ✨ NEW
+- **grass_watershed**: Watershed analysis and stream extraction from DEMs
+- **grass_viewshed**: Calculate viewshed (visible areas) from observer points
+- **grass_reclass**: Reclassify raster values into new categories
+- **grass_overlay**: Vector overlay operations (intersect, union, difference)
+- **grass_import_raster**: Import raster data with automatic reprojection
+
+### Universal Access (Phase 2B) ✨ NEW
+- **grass_execute**: Execute ANY of the 500+ GRASS GIS commands with full parameter control
 
 ## Quick Start
 
@@ -279,7 +289,7 @@ Assistant uses:
   - location: "nc_spm_08"
 ```
 
-### Example 8: Interactive Map ✨ NEW
+### Example 8: Interactive Map ✨
 
 ```
 User: Create an interactive map of the landuse raster that I can open in a browser
@@ -292,6 +302,75 @@ Assistant uses:
   - gisdbase: "/home/user/grassdata"
   - location: "nc_spm_08"
 ```
+
+### Example 9: Watershed Analysis ✨ NEW (Phase 2A)
+
+```
+User: Perform watershed analysis on elevation and extract stream networks
+
+Assistant uses:
+- Tool: grass_watershed
+- Arguments:
+  - elevation: "elevation"
+  - accumulation: "flow_accum"
+  - basin: "watersheds"
+  - stream: "streams"
+  - threshold: 10000
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 10: Viewshed Analysis ✨ NEW (Phase 2A)
+
+```
+User: Calculate what's visible from a viewpoint at coordinates 637500,220500
+
+Assistant uses:
+- Tool: grass_viewshed
+- Arguments:
+  - input: "elevation"
+  - output: "viewshed"
+  - coordinates: "637500,220500"
+  - observer_elevation: 2.0
+  - max_distance: 5000
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 11: Reclassify Terrain ✨ NEW (Phase 2A)
+
+```
+User: Reclassify elevation into 3 categories: low (0-100m), medium (100-200m), high (200+m)
+
+Assistant uses:
+- Tool: grass_reclass
+- Arguments:
+  - input: "elevation"
+  - output: "elevation_classes"
+  - rules: "0:100:1 = Low\n100:200:2 = Medium\n200:*:3 = High"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+### Example 12: Generic Command Execution ✨ NEW (Phase 2B)
+
+```
+User: Run r.neighbors to smooth the elevation data with a 5x5 window
+
+Assistant uses:
+- Tool: grass_execute
+- Arguments:
+  - command: "r.neighbors"
+  - parameters:
+      input: "elevation"
+      output: "elevation_smoothed"
+      size: 5
+      method: "average"
+  - gisdbase: "/home/user/grassdata"
+  - location: "nc_spm_08"
+```
+
+This generic wrapper provides access to ALL 500+ GRASS commands!
 
 ## GRASS GIS Concepts
 
@@ -326,6 +405,7 @@ grass ~/grassdata/nc_spm_08/PERMANENT
 
 ## Available Tools Reference
 
+### Core Tools (8)
 | Tool | Purpose | Key Parameters |
 |------|---------|----------------|
 | `grass_raster_info` | Get raster metadata | map_name, gisdbase, location |
@@ -336,9 +416,29 @@ grass ~/grassdata/nc_spm_08/PERMANENT
 | `grass_slope_aspect` | Terrain analysis | elevation, slope, aspect |
 | `grass_buffer` | Vector buffering | input_map, output_map, distance |
 | `grass_region_info` | Get region info | gisdbase, location |
-| `grass_visualize_raster` ✨ | Create PNG visualization | map_name, output_path, style |
-| `grass_create_composite` ✨ | Create hillshade composite | base_map, output_path |
-| `grass_create_interactive_map` ✨ | Create HTML interactive map | map_name, output_path |
+
+### Visualization Tools (3) - Phase 1
+| Tool | Purpose | Key Parameters |
+|------|---------|----------------|
+| `grass_visualize_raster` | Create PNG visualization | map_name, output_path, style |
+| `grass_create_composite` | Create hillshade composite | base_map, output_path |
+| `grass_create_interactive_map` | Create HTML interactive map | map_name, output_path |
+
+### Advanced Analysis Tools (5) - Phase 2A ✨ NEW
+| Tool | Purpose | Key Parameters |
+|------|---------|----------------|
+| `grass_watershed` | Watershed & stream extraction | elevation, basin, stream, threshold |
+| `grass_viewshed` | Visibility analysis | input, output, coordinates |
+| `grass_reclass` | Reclassify raster values | input, output, rules |
+| `grass_overlay` | Vector overlay operations | ainput, binput, output, operator |
+| `grass_import_raster` | Import raster with reprojection | input, output, resolution |
+
+### Universal Access (1) - Phase 2B ✨ NEW
+| Tool | Purpose | Key Parameters |
+|------|---------|----------------|
+| `grass_execute` | Execute ANY GRASS command | command, parameters, flags |
+
+**Total: 17 tools providing access to 500+ GRASS GIS commands**
 
 ## Development
 
@@ -421,15 +521,27 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)**
 
 ## Documentation
 
+### Core Documentation
 - **[README.md](README.md)** - This file, main documentation
 - **[USAGE.md](USAGE.md)** - Detailed usage examples and workflows
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Comprehensive deployment guide
 - **[TESTING_SUMMARY.md](TESTING_SUMMARY.md)** - Test suite documentation
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 - **[tests/README.md](tests/README.md)** - Testing guide
-- **[VISUALIZATION_OPTIONS.md](VISUALIZATION_OPTIONS.md)** ✨ - Visualization approaches analysis
-- **[VISUALIZATION_RECOMMENDATION.md](VISUALIZATION_RECOMMENDATION.md)** ✨ - Implementation guide
-- **[VISUALIZATION_TEST_RESULTS.md](VISUALIZATION_TEST_RESULTS.md)** ✨ - Test validation results
+
+### Phase 1: Visualization
+- **[VISUALIZATION_OPTIONS.md](VISUALIZATION_OPTIONS.md)** - Visualization approaches analysis
+- **[VISUALIZATION_RECOMMENDATION.md](VISUALIZATION_RECOMMENDATION.md)** - Implementation guide
+- **[VISUALIZATION_TEST_RESULTS.md](VISUALIZATION_TEST_RESULTS.md)** - Test validation results
+- **[TESTING_VISUALIZATION.md](TESTING_VISUALIZATION.md)** - Comprehensive testing guide
+- **[QUICK_TEST_GUIDE.md](QUICK_TEST_GUIDE.md)** - Quick reference for testing
+
+### Phase 2: Expansion ✨ NEW
+- **[EXPANSION_STRATEGY.md](EXPANSION_STRATEGY.md)** - Complete expansion plan (11 → 500+ commands)
+- **[EXPANSION_SUMMARY.md](EXPANSION_SUMMARY.md)** - Executive summary and recommendations
+- **[PROJECT_DESCRIPTIONS.md](PROJECT_DESCRIPTIONS.md)** - Accurate project descriptions for different contexts
+
+### Installation
 - **[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md)** - Local installation instructions
 - **[LOCAL_VISUALIZATION_GUIDE.md](LOCAL_VISUALIZATION_GUIDE.md)** - Local vs server visualization
 

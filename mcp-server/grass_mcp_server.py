@@ -33,6 +33,14 @@ except ImportError as e:
     VISUALIZATION_AVAILABLE = False
     VISUALIZATION_IMPORT_ERROR = str(e)
 
+# Import expansion tools (Phase 2A+B)
+try:
+    from grass_expansion_poc import EXPANSION_TOOLS_CUSTOM, GENERIC_WRAPPER_TOOL
+    EXPANSION_AVAILABLE = True
+except ImportError as e:
+    EXPANSION_AVAILABLE = False
+    EXPANSION_IMPORT_ERROR = str(e)
+
 
 # Create MCP server instance
 app = Server("grass-gis")
@@ -307,11 +315,19 @@ async def list_tools() -> list[Tool]:
         ),
     ]
 
+    # Build complete tool list
+    all_tools = base_tools.copy()
+
     # Add visualization tools if available
     if VISUALIZATION_AVAILABLE:
-        return base_tools + VISUALIZATION_TOOLS
-    else:
-        return base_tools
+        all_tools.extend(VISUALIZATION_TOOLS)
+
+    # Add expansion tools if available (Phase 2A+B)
+    if EXPANSION_AVAILABLE:
+        all_tools.extend(EXPANSION_TOOLS_CUSTOM)
+        all_tools.append(GENERIC_WRAPPER_TOOL)
+
+    return all_tools
 
 
 async def run_grass_command(
@@ -319,6 +335,8 @@ async def run_grass_command(
     gisdbase: str,
     location: str,
     mapset: str = "PERMANENT",
+    stdin_data: Optional[str] = None,
+    timeout: int = 60,
 ) -> str:
     """
     Run a GRASS GIS command with proper environment setup (async version).
@@ -328,6 +346,8 @@ async def run_grass_command(
         gisdbase: Path to GRASS database
         location: GRASS location name
         mapset: GRASS mapset name
+        stdin_data: Optional input to pass via stdin
+        timeout: Command timeout in seconds (default: 60)
 
     Returns:
         Command output as string
@@ -385,21 +405,206 @@ async def run_grass_command(
     process = await asyncio.create_subprocess_exec(
         *full_command,
         env=env,
+        stdin=asyncio.subprocess.PIPE if stdin_data else None,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
 
     try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
+        # Communicate with optional stdin input
+        if stdin_data:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(input=stdin_data.encode()),
+                timeout=timeout
+            )
+        else:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout
+            )
     except asyncio.TimeoutError:
         process.kill()
         await process.wait()
-        raise RuntimeError("GRASS command timed out after 60 seconds")
+        raise RuntimeError(f"GRASS command timed out after {timeout} seconds")
 
     if process.returncode != 0:
         raise RuntimeError(f"GRASS command failed: {stderr.decode()}")
 
     return stdout.decode()
+
+
+# =============================================================================
+# Expansion Tool Handlers (Phase 2A+B)
+# =============================================================================
+
+async def handle_expansion_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+    """Handle expansion tool calls (Phase 2A+B)."""
+    try:
+        if name == "grass_watershed":
+            # r.watershed - Watershed and stream extraction
+            cmd = ["r.watershed", f"elevation={arguments['elevation']}"]
+
+            # Add optional outputs
+            if "accumulation" in arguments:
+                cmd.append(f"accumulation={arguments['accumulation']}")
+            if "drainage" in arguments:
+                cmd.append(f"drainage={arguments['drainage']}")
+            if "basin" in arguments:
+                cmd.append(f"basin={arguments['basin']}")
+            if "stream" in arguments:
+                cmd.append(f"stream={arguments['stream']}")
+
+            # Add threshold
+            threshold = arguments.get("threshold", 1000)
+            cmd.append(f"threshold={threshold}")
+
+            await run_grass_command(
+                cmd,
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                timeout=300  # Longer timeout for watershed
+            )
+
+            outputs = []
+            if "accumulation" in arguments:
+                outputs.append(f"flow accumulation: {arguments['accumulation']}")
+            if "basin" in arguments:
+                outputs.append(f"watersheds: {arguments['basin']}")
+            if "stream" in arguments:
+                outputs.append(f"streams: {arguments['stream']}")
+
+            return [TextContent(
+                type="text",
+                text=f"Watershed analysis complete. Created: {', '.join(outputs)}"
+            )]
+
+        elif name == "grass_viewshed":
+            # r.viewshed - Viewshed analysis
+            cmd = [
+                "r.viewshed",
+                f"input={arguments['input']}",
+                f"output={arguments['output']}",
+                f"coordinates={arguments['coordinates']}",
+                f"observer_elevation={arguments.get('observer_elevation', 1.75)}",
+                f"target_elevation={arguments.get('target_elevation', 0)}",
+            ]
+
+            if arguments.get("max_distance", -1) > 0:
+                cmd.append(f"max_distance={arguments['max_distance']}")
+
+            await run_grass_command(
+                cmd,
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                timeout=300
+            )
+
+            return [TextContent(
+                type="text",
+                text=f"Viewshed analysis complete. Created: {arguments['output']}"
+            )]
+
+        elif name == "grass_reclass":
+            # r.reclass - Reclassification (reads rules from stdin)
+            await run_grass_command(
+                ["r.reclass", f"input={arguments['input']}", f"output={arguments['output']}"],
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                stdin_data=arguments["rules"]
+            )
+
+            return [TextContent(
+                type="text",
+                text=f"Reclassification complete. Created: {arguments['output']}"
+            )]
+
+        elif name == "grass_overlay":
+            # v.overlay - Vector overlay
+            cmd = [
+                "v.overlay",
+                f"ainput={arguments['ainput']}",
+                f"binput={arguments['binput']}",
+                f"output={arguments['output']}",
+                f"operator={arguments.get('operator', 'and')}",
+            ]
+
+            await run_grass_command(
+                cmd,
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                timeout=180
+            )
+
+            return [TextContent(
+                type="text",
+                text=f"Vector overlay complete. Created: {arguments['output']}"
+            )]
+
+        elif name == "grass_import_raster":
+            # r.import - Import raster with reprojection
+            cmd = [
+                "r.import",
+                f"input={arguments['input']}",
+                f"output={arguments['output']}",
+                f"resolution={arguments.get('resolution', 'estimated')}",
+                f"extent={arguments.get('extent', 'input')}",
+            ]
+
+            await run_grass_command(
+                cmd,
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                timeout=600  # Longer timeout for imports
+            )
+
+            return [TextContent(
+                type="text",
+                text=f"Raster import complete. Created: {arguments['output']}"
+            )]
+
+        elif name == "grass_execute":
+            # Generic wrapper - Execute any GRASS command
+            command = arguments["command"]
+            parameters = arguments["parameters"]
+            flags = arguments.get("flags", "")
+            stdin_data = arguments.get("stdin")
+
+            # Build command
+            cmd = [command]
+
+            # Add flags
+            if flags:
+                cmd.append(f"-{flags}")
+
+            # Add parameters
+            for key, value in parameters.items():
+                if value is not None:
+                    cmd.append(f"{key}={value}")
+
+            result = await run_grass_command(
+                cmd,
+                arguments["gisdbase"],
+                arguments["location"],
+                arguments.get("mapset", "PERMANENT"),
+                stdin_data=stdin_data,
+                timeout=600  # Longer timeout for generic commands
+            )
+
+            return [TextContent(
+                type="text",
+                text=f"Command '{command}' executed successfully.\n\nOutput:\n{result}"
+            )]
+
+        else:
+            return [TextContent(type="text", text=f"Unknown expansion tool: {name}")]
+
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error in {name}: {str(e)}")]
 
 
 @app.call_tool()
@@ -409,6 +614,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
         # Route visualization tool calls
         if VISUALIZATION_AVAILABLE and name in ["grass_visualize_raster", "grass_create_composite", "grass_create_interactive_map"]:
             return await handle_visualization_tool(name, arguments)
+
+        # Route expansion tool calls (Phase 2A+B)
+        if EXPANSION_AVAILABLE and name in ["grass_watershed", "grass_viewshed", "grass_reclass",
+                                             "grass_overlay", "grass_import_raster", "grass_execute"]:
+            return await handle_expansion_tool(name, arguments)
 
         if name == "grass_raster_info":
             output = await run_grass_command(
