@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "grass-gis": {
-      "command": "python",
-      "args": ["-m", "grass_mcp_server"]
-    }
-  }
-}
